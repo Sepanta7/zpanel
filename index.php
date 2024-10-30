@@ -18,20 +18,56 @@ if (!file_exists('data/configs')) {
     mkdir('data/configs', 0777, true);
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_user') {
-    $remark = $_POST['remark'];
-    $duration = $_POST['duration'];
-    $volume = $_POST['volume'];
-    $configs = $_POST['configs'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['action']) && $_POST['action'] === 'create_user') {
+        $remark = $_POST['remark'];
+        $duration = $_POST['duration'];
+        $volume = $_POST['volume'];
+        $configs = $_POST['configs'];
 
-    $configFileName = 'data/configs/' . $remark . '.txt';
-    $userDetails = "$remark,$duration,$volume,$configFileName\n";
+        $configFileName = 'data/configs/' . $remark . '.txt';
+        $userDetails = "$remark,$duration,$volume,$configFileName\n";
 
-    file_put_contents($configFileName, $configs);
-    file_put_contents('data/users.txt', $userDetails, FILE_APPEND);
+        file_put_contents($configFileName, $configs);
+        file_put_contents('data/users.txt', $userDetails, FILE_APPEND);
 
-    echo json_encode(['status' => 'success']);
-    exit;
+        echo json_encode(['status' => 'success']);
+        exit;
+    }
+
+    if (isset($_POST['action']) && $_POST['action'] === 'delete_user') {
+        $remark = $_POST['remark'];
+        $users = file('data/users.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $updatedUsers = array_filter($users, function($user) use ($remark) {
+            return !str_starts_with($user, $remark);
+        });
+
+        file_put_contents('data/users.txt', implode("\n", $updatedUsers) . "\n");
+        unlink('data/configs/' . $remark . '.txt'); // حذف فایل کانفینگ
+        echo json_encode(['status' => 'success']);
+        exit;
+    }
+
+    if (isset($_POST['action']) && $_POST['action'] === 'edit_user') {
+        $remark = $_POST['remark'];
+        $duration = $_POST['duration'];
+        $volume = $_POST['volume'];
+        $configs = $_POST['configs'];
+
+        $users = file('data/users.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $updatedUsers = array_map(function($user) use ($remark, $duration, $volume, $configs) {
+            list($existingRemark) = explode(',', $user);
+            if ($existingRemark === $remark) {
+                return "$remark,$duration,$volume,data/configs/$remark.txt"; // به‌روزرسانی جزئیات کاربر
+            }
+            return $user;
+        }, $users);
+
+        file_put_contents('data/users.txt', implode("\n", $updatedUsers) . "\n");
+        file_put_contents('data/configs/' . $remark . '.txt', $configs);
+        echo json_encode(['status' => 'success']);
+        exit;
+    }
 }
 
 $users = file('data/users.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -111,11 +147,33 @@ $users = file('data/users.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         .user-actions {
             display: flex;
             flex-direction: column;
+            position: relative;
         }
         .user-actions button {
             background-color: transparent;
             border: none;
             cursor: pointer;
+        }
+        .dropdown {
+            display: none;
+            position: absolute;
+            background-color: white;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+        }
+        .dropdown button {
+            color: black;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            width: 100%;
+            border: none;
+            text-align: left;
+        }
+        .dropdown button.red {
+            background-color: red;
+            color: white;
         }
     </style>
 </head>
@@ -153,7 +211,11 @@ $users = file('data/users.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
                     <div style="flex: 1; text-align: center;">مدت زمان: <?php echo htmlspecialchars($duration); ?></div>
                 </div>
                 <div class="user-actions">
-                    <button onclick="alert('Actions for <?php echo htmlspecialchars($remark); ?>')">...</button>
+                    <button onclick="showDropdown(event, '<?php echo htmlspecialchars($remark); ?>')">...</button>
+                    <div class="dropdown" id="dropdown-<?php echo htmlspecialchars($remark); ?>">
+                        <button class="red" onclick="deleteUser('<?php echo htmlspecialchars($remark); ?>')">حذف سرویس</button>
+                        <button onclick="editUser('<?php echo htmlspecialchars($remark); ?>', '<?php echo htmlspecialchars($duration); ?>', '<?php echo htmlspecialchars($volume); ?>', '<?php echo htmlspecialchars(file_get_contents($configFileName)); ?>')">ویرایش سرویس</button>
+                    </div>
                 </div>
             </div>
         <?php endforeach; ?>
@@ -184,20 +246,89 @@ $users = file('data/users.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
             const volume = document.getElementById('volume').value;
             const configs = document.getElementById('configs').value;
 
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '', true);
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    if (response.status === 'success') {
-                        alert('یوزر جدید با موفقیت ایجاد شد!');
-                        document.getElementById('modal').style.display = 'none';
+            fetch('', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({
+                    'action': 'create_user',
+                    'remark': remark,
+                    'duration': duration,
+                    'volume': volume,
+                    'configs': configs
+                })
+            }).then(response => response.json()).then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                }
+            });
+        }
+
+        function showDropdown(event, remark) {
+            event.stopPropagation();
+            const dropdown = document.getElementById(`dropdown-${remark}`);
+            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function deleteUser(remark) {
+            if (confirm('آیا از حذف این سرویس اطمینان دارید؟')) {
+                fetch('', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        'action': 'delete_user',
+                        'remark': remark
+                    })
+                }).then(response => response.json()).then(data => {
+                    if (data.status === 'success') {
                         location.reload();
                     }
-                }
-            };
-            xhr.send(`action=create_user&remark=${encodeURIComponent(remark)}&duration=${encodeURIComponent(duration)}&volume=${encodeURIComponent(volume)}&configs=${encodeURIComponent(configs)}`);
+                });
+            }
+        }
+
+        function editUser(remark, duration, volume, configs) {
+            document.getElementById('remark').value = remark;
+            document.getElementById('duration').value = duration;
+            document.getElementById('volume').value = volume;
+            document.getElementById('configs').value = configs;
+
+            document.getElementById('submitUser').innerText = 'تغییر یوزر';
+            document.getElementById('submitUser').onclick = function() {
+                fetch('', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        'action': 'edit_user',
+                        'remark': remark,
+                        'duration': document.getElementById('duration').value,
+                        'volume': document.getElementById('volume').value,
+                        'configs': document.getElementById('configs').value
+                    })
+                }).then(response => response.json()).then(data => {
+                    if (data.status === 'success') {
+                        location.reload();
+                    }
+                });
+            }
+
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        window.onclick = function(event) {
+            const dropdowns = document.getElementsByClassName('dropdown');
+            for (let i = 0; i < dropdowns.length; i++) {
+                dropdowns[i].style.display = 'none';
+            }
+
+            if (event.target === document.getElementById('modal')) {
+                document.getElementById('modal').style.display = 'none';
+            }
         }
     </script>
 </body>

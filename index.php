@@ -1,184 +1,204 @@
 <?php
 session_start();
 
-// بررسی اینکه آیا کاربر وارد شده است
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header("Location: login.php");
     exit;
 }
 
-// جلوگیری از هک سشن
-if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 1800)) { // 30 دقیقه
-    session_unset(); // حذف تمام متغیرهای سشن
-    session_destroy(); // نابود کردن سشن
-    header("Location: login.php");
+if (!file_exists('data')) {
+    mkdir('data', 0777, true);
+}
+
+if (!file_exists('data/users.txt')) {
+    file_put_contents('data/users.txt', "");
+}
+
+if (!file_exists('data/configs')) {
+    mkdir('data/configs', 0777, true);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_user') {
+    $remark = $_POST['remark'];
+    $duration = $_POST['duration'];
+    $volume = $_POST['volume'];
+    $configs = $_POST['configs'];
+
+    $configFileName = 'data/configs/' . $remark . '.txt';
+    $userDetails = "$remark,$duration,$volume,$configFileName\n";
+
+    file_put_contents($configFileName, $configs);
+    file_put_contents('data/users.txt', $userDetails, FILE_APPEND);
+
+    echo json_encode(['status' => 'success']);
     exit;
 }
-$_SESSION['last_activity'] = time(); // بروزرسانی زمان آخرین فعالیت
 
-// نام کاربری را از نشست بازیابی کنید
-$username = $_SESSION['username'] ?? 'کاربر';
-
-// مسیر ذخیره‌سازی اطلاعات
-$usersFile = 'data/users.txt';
-$configsDir = 'data/configs/';
-
-// بررسی وجود پوشه configs و ایجاد آن در صورت عدم وجود
-if (!is_dir($configsDir)) {
-    mkdir($configsDir, 0755, true);
-}
-
-// بررسی اینکه آیا فرم ارسال شده است
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $userRemark = $_POST['userRemark'];
-    $subscriptionDuration = $_POST['subscriptionDuration'];
-    $subscriptionVolume = $_POST['subscriptionVolume'];
-    $configCount = $_POST['configCount'];
-
-    // ذخیره اطلاعات یوزر در فایل users.txt
-    $userData = "$userRemark | $subscriptionDuration | $subscriptionVolume\n";
-    file_put_contents($usersFile, $userData, FILE_APPEND);
-
-    // ایجاد فایل کانفینگ
-    for ($i = 0; $i < $configCount; $i++) {
-        $configFileName = "$configsDir/$userRemark-config" . ($i + 1) . ".txt";
-        file_put_contents($configFileName, "کانفینگ برای $userRemark\n");
-    }
-
-    // بازگشت به صفحه اصلی پس از ایجاد یوزر
-    header("Location: index.php");
-    exit;
-}
+$users = file('data/users.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 ?>
 
 <!DOCTYPE html>
-<html lang="fa">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>z-panel</title>
     <style>
         body {
             background-color: darkgray;
         }
         .userspanel {
             background-color: darkblue;
-            color: white;
             padding: 20px;
             border-radius: 10px;
-            width: 80%;
-            max-width: 600px;
-            margin: 50px auto; /* مرکز کردن پنل */
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 300px;
+            border-radius: 10px;
         }
         .button {
             background-color: green;
             color: white;
+            padding: 10px;
             border: none;
-            padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
-            margin: 10px 0;
+            width: 100%;
         }
         .button:disabled {
             background-color: gray;
             cursor: not-allowed;
         }
-        .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 1; 
-            left: 0;
-            top: 0;
-            width: 100%; 
-            height: 100%; 
-            overflow: auto; 
-            background-color: rgb(0,0,0); 
-            background-color: rgba(0,0,0,0.4); 
-            padding-top: 60px; 
+        .input-field {
+            margin-bottom: 15px;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
         }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto; 
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%; 
-            border-radius: 10px;
+        .user-card {
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
+        .user-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
         }
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
+        .user-actions {
+            display: flex;
+            flex-direction: column;
+        }
+        .user-actions button {
+            background-color: transparent;
+            border: none;
             cursor: pointer;
         }
     </style>
-    <title>z-panel</title>
 </head>
 <body>
     <div class="userspanel">
-        <h2>پنل مدیریت</h2>
-        <button id="createUserButton" class="button">ایجاد یوزر جدید +</button>
-
+        <button id="createUserBtn" class="button">ایجاد یوزر جدید +</button>
         <div id="modal" class="modal">
             <div class="modal-content">
-                <span class="close">&times;</span>
-                <h3>ایجاد یوزر جدید</h3>
-                <form method="POST" id="userForm">
-                    <label for="userRemark">ریمارک یوزر:</label>
-                    <input type="text" id="userRemark" name="userRemark" required>
-                    
-                    <label for="subscriptionDuration">مدت زمان اشتراک:</label>
-                    <input type="text" id="subscriptionDuration" name="subscriptionDuration" required>
-                    
-                    <label for="subscriptionVolume">حجم اشتراک:</label>
-                    <input type="text" id="subscriptionVolume" name="subscriptionVolume" required>
-                    
-                    <label for="configCount">تعداد کانفینگ ها:</label>
-                    <input type="number" id="configCount" name="configCount" min="1" required>
-
-                    <button type="submit" class="button" id="submitButton" disabled>ایجاد یوزر</button>
-                    <button type="button" class="button" id="confirmButton" disabled>تایید</button>
-                </form>
+                <h2>ایجاد یوزر جدید</h2>
+                <label for="remark">ریمارک یوزر:</label>
+                <input type="text" id="remark" class="input-field" required>
+                
+                <label for="duration">مدت زمان اشتراک:</label>
+                <input type="text" id="duration" class="input-field" required>
+                
+                <label for="volume">حجم اشتراک:</label>
+                <input type="text" id="volume" class="input-field" required>
+                
+                <label for="configs">کانفینگ‌ها:</label>
+                <textarea id="configs" class="input-field" rows="4" required></textarea>
+                
+                <button id="submitUser" class="button" disabled>ایجاد یوزر</button>
             </div>
         </div>
     </div>
 
+    <div class="userspanel">
+        <h3>یوزرهای موجود:</h3>
+        <?php foreach ($users as $user): ?>
+            <?php list($remark, $duration, $volume, $configFileName) = explode(',', $user); ?>
+            <div class="user-card">
+                <div class="user-info">
+                    <div style="flex: 1; text-align: left;">ریمارک سرویس: <?php echo htmlspecialchars($remark); ?></div>
+                    <div style="flex: 1; text-align: center;">حجم: <?php echo htmlspecialchars($volume); ?></div>
+                    <div style="flex: 1; text-align: center;">مدت زمان: <?php echo htmlspecialchars($duration); ?></div>
+                </div>
+                <div class="user-actions">
+                    <button onclick="alert('Actions for <?php echo htmlspecialchars($remark); ?>')">...</button>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
     <script>
-        const modal = document.getElementById("modal");
-        const createUserButton = document.getElementById("createUserButton");
-        const closeButton = document.getElementsByClassName("close")[0];
-        const formInputs = document.querySelectorAll("input");
-        const submitButton = document.getElementById("submitButton");
-
-        createUserButton.onclick = function() {
-            modal.style.display = "block";
+        document.getElementById('createUserBtn').onclick = function() {
+            document.getElementById('modal').style.display = 'block';
         }
 
-        closeButton.onclick = function() {
-            modal.style.display = "none";
+        document.getElementById('remark').oninput = validateFields;
+        document.getElementById('duration').oninput = validateFields;
+        document.getElementById('volume').oninput = validateFields;
+        document.getElementById('configs').oninput = validateFields;
+
+        function validateFields() {
+            const remark = document.getElementById('remark').value.trim();
+            const duration = document.getElementById('duration').value.trim();
+            const volume = document.getElementById('volume').value.trim();
+            const configs = document.getElementById('configs').value.trim();
+
+            document.getElementById('submitUser').disabled = !(remark && duration && volume && configs);
         }
 
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
-        }
+        document.getElementById('submitUser').onclick = function() {
+            const remark = document.getElementById('remark').value;
+            const duration = document.getElementById('duration').value;
+            const volume = document.getElementById('volume').value;
+            const configs = document.getElementById('configs').value;
 
-        const checkInputs = () => {
-            let allFilled = true;
-            formInputs.forEach(input => {
-                if (!input.value) allFilled = false;
-            });
-            submitButton.disabled = !allFilled;
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.status === 'success') {
+                        alert('یوزر جدید با موفقیت ایجاد شد!');
+                        document.getElementById('modal').style.display = 'none';
+                        location.reload();
+                    }
+                }
+            };
+            xhr.send(`action=create_user&remark=${encodeURIComponent(remark)}&duration=${encodeURIComponent(duration)}&volume=${encodeURIComponent(volume)}&configs=${encodeURIComponent(configs)}`);
         }
-
-        formInputs.forEach(input => {
-            input.addEventListener("input", checkInputs);
-        });
     </script>
 </body>
 </html>

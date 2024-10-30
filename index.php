@@ -84,7 +84,7 @@ $users = file('data/users.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
             background-color: #2c3e50;
         }
         .userspanel {
-            background-color: darkblue;
+            background-color: #34495e;
             padding: 20px;
             border-radius: 10px;
             position: relative;

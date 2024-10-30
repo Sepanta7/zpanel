@@ -32,10 +32,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html lang="fa">
 <head>
     <meta charset="UTF-8">
-    <title>ورود به سایت</title>
+    <title>z-panel</title>
 </head>
 <body>
-    <h2>فرم ورود</h2>
+    <h2>z panel</h2>
     <form action="login.php" method="post">
         <label for="username">نام کاربری:</label>
         <input type="text" id="username" name="username" required>

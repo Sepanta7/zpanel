@@ -81,7 +81,7 @@ $users = file('data/users.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     <title>z-panel</title>
     <style>
         body {
-            background-color: darkgray;
+            background-color: #2c3e50;
         }
         .userspanel {
             background-color: darkblue;

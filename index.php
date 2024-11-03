@@ -2,6 +2,15 @@
 session_start();
 include 'assets/db.php';
 
+function checkDatabaseConnection() {
+    if (!file_exists('assets/db.php')) {
+        header("Location: install.php");
+        exit;
+    }
+}
+
+checkDatabaseConnection();
+
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header("Location: login.php");
     exit;

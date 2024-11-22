@@ -34,15 +34,23 @@ $qrcodeURL = 'https://api.qrserver.com/v1/create-qr-code/?data=' . urlencode($co
     <script src="./js/popper.min.js"></script>
     <script src="./js/bootstrap.min.js"></script>
 </head>
-  <style>
-    body {
-      body {background: url('./assets/subbg.jpg') no-repeat center;
+<style>
+
+    body {background: url('https://4kwallpapers.com/images/wallpapers/windows-server-2025-3840x2400-15386.jpg') no-repeat center;
             background-size: cover;
-           }
-  </style>
+        }
+    .box {
+        background-color: gray;
+        border-radius: 8px;
+        padding-bottom: 10px;
+        padding-top: 10px;
+        margin-top: 20px;
+    }    
+</style>
 <body>
 
-<div class="container mt-5">
+<div class="box">
+ <div class="container mt-5">
     <h2>اطلاعات سرویس کاربر</h2>
     <p>حجم: <?php echo htmlspecialchars($volume); ?></p>
     <p>مدت: <?php echo htmlspecialchars($duration); ?></p>
@@ -69,6 +77,7 @@ $qrcodeURL = 'https://api.qrserver.com/v1/create-qr-code/?data=' . urlencode($co
             </div>
         </div>
     </div>
+ </div>
 </div>
 
 <script>

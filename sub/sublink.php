@@ -36,16 +36,9 @@ $qrcodeURL = 'https://api.qrserver.com/v1/create-qr-code/?data=' . urlencode($co
 </head>
 <style>
 
-    body {background: url('https://4kwallpapers.com/images/wallpapers/windows-server-2025-3840x2400-15386.jpg') no-repeat center;
+    body {background: url('https://4kwallpapers.com/images/walls/thumbs_3t/8985.jpg') no-repeat center;
             background-size: cover;
         }
-    .box {
-        background-color: gray;
-        border-radius: 8px;
-        padding-bottom: 10px;
-        padding-top: 10px;
-        margin-top: 20px;
-    }    
 </style>
 <body>
 

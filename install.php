@@ -24,10 +24,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $content .= "}\n";
     $content .= "?>";
 
-    // ایجاد فایل db.php در پوشه assets
+    
     file_put_contents('assets/db.php', $content);
-
-    // نمایش پیام موفقیت
     echo "فایل db.php با موفقیت ایجاد شد.";
 }
 ?>
@@ -36,10 +34,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html lang="fa">
 <head>
     <meta charset="UTF-8">
-    <title>ایجاد فایل db.php</title>
+    <title>نصب پنل</title>
 </head>
 <body>
-    <h1>ایجاد فایل db.php</h1>
+    <h1>نصب پنل</h1></h1>
     <form method="POST" action="">
         <label for="dbname">نام دیتابیس:</label>
         <input type="text" id="dbname" name="dbname" required><br><br>

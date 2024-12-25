@@ -1,161 +1,217 @@
 <?php
-session_start();
-include 'assets/db.php';
+session_start(); 
 
-function checkDatabaseConnection() {
-    if (!file_exists('assets/db.php')) {
-        header("Location: install.php");
-        exit;
-    }
-}
-
-checkDatabaseConnection();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header("Location: login.php");
-    exit;
+    exit();
 }
 
-$query = "CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    remark VARCHAR(255) NOT NULL,
-    duration VARCHAR(50),
-    volume VARCHAR(50),
-    config_file VARCHAR(255)
-)";
+include 'assets/db.php';
 
-try {
-    $pdo->exec($query);
-} catch (PDOException $e) {
-    echo "Error creating table: " . $e->getMessage();
+function getStats() {
+    global $pdo;
+
+    $userCount = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+
+    $usedRam = 1; 
+    $totalRam = 20; 
+    $usedTraffic = 200;
+    $totalTraffic = 1000;
+    $activeProcesses = 1;
+    $processLimit = 20; 
+
+    return [
+        'userCount' => $userCount,
+        'ramUsage' => [$usedRam, $totalRam],
+        'trafficUsage' => [$usedTraffic, $totalTraffic],
+        'processUsage' => [$activeProcesses, $processLimit]
+    ];
 }
 
-function generateRandomFileName($length = 30) {
-    $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    $charactersLength = strlen($characters);
-    $randomString = '';
-    for ($i = 0; $i < $length; $i++) {
-        $randomString .= $characters[rand(0, $charactersLength - 1)];
-    }
-    return $randomString;
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        if (isset($_POST['action']) && $_POST['action'] === 'create_user') {
-            $remark = $_POST['remark'];
-            $duration = $_POST['duration'];
-            $volume = $_POST['volume'];
-            $configs = $_POST['configs'];
-
-            $randomFileName = generateRandomFileName() . '.txt';
-            $configFilePath = 'sub/' . $randomFileName;
-
-            file_put_contents($configFilePath, $configs);
-
-            $stmt = $pdo->prepare("INSERT INTO users (remark, duration, volume, config_file) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$remark, $duration, $volume, $configFilePath]);
-
-            echo json_encode(['status' => 'success']);
-            exit;
-        }
-
-        if (isset($_POST['action']) && $_POST['action'] === 'delete_user') {
-            $remark = $_POST['remark'];
-
-            $stmt = $pdo->prepare("SELECT config_file FROM users WHERE remark = ?");
-            $stmt->execute([$remark]);
-            $configFilePath = $stmt->fetchColumn();
-
-            $stmt = $pdo->prepare("DELETE FROM users WHERE remark = ?");
-            $stmt->execute([$remark]);
-
-            if (file_exists($configFilePath)) {
-                unlink($configFilePath);
-            }
-
-            echo json_encode(['status' => 'success']);
-            exit;
-        }
-
-        if (isset($_POST['action']) && $_POST['action'] === 'edit_user') {
-            $remark = $_POST['remark'];
-            $duration = $_POST['duration'];
-            $volume = $_POST['volume'];
-            $configs = $_POST['configs'];
-
-            $stmt = $pdo->prepare("SELECT config_file FROM users WHERE remark = ?");
-            $stmt->execute([$remark]);
-            $configFilePath = $stmt->fetchColumn();
-
-            $stmt = $pdo->prepare("UPDATE users SET duration = ?, volume = ? WHERE remark = ?");
-            $stmt->execute([$duration, $volume, $remark]);
-
-            file_put_contents($configFilePath, $configs);
-
-            echo json_encode(['status' => 'success']);
-            exit;
-        }
-    } catch (PDOException $e) {
-        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
-        exit;
-    }
-}
-
-$result = $pdo->query("SELECT remark, duration, volume, config_file FROM users");
-$users = $result->fetchAll(PDO::FETCH_ASSOC);
+$stats = getStats();
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="assets/style.css">
-    <title>z-panel</title>
+    <title>z panel - داشبورد</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #202020;
+            color: #00ff62;
+            font-family: Arial, sans-serif;
+        }
+        .top {
+            border-radius: 5px;
+            background-color: #1a1a1a;
+            margin: 20px;
+            padding: 10px;
+            max-width: 95%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .top h2 {
+            margin: 0;
+            font-size: 24px;
+            text-align: center;
+            color: #00ff62;
+        }
+        .hamberger-menu {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 25px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .hamberger-menu div {
+            width: 100%;
+            height: 3px;
+            background-color: #fff;
+        }
+        .am {
+            border-radius: 5px;
+            background-color: #1a1a1a;
+            margin: 20px;
+            padding: 20px;
+            max-width: 95%;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .am .users,
+        .am .ram,
+        .am .trafick,
+        .am .procec {
+            text-align: center;
+            font-size: 16px;
+            color: #00ff62;
+        }
+        .backup {
+            border-radius: 5px;
+            background-color: #1a1a1a;
+            margin: 20px;
+            padding: 10px;
+            max-width: 95%;
+            text-align: center;
+        }
+        .backup button {
+            border-radius: 10px;
+            width: 10%;
+            border: 0;
+            padding: 10px;
+            background-color: #00ff62;
+            color: #202020;
+            font-weight: bold;
+            margin: 10px;
+            cursor: pointer;
+        }
+        .backup span {
+            color: #00ff62;
+            font-size: 18px;
+            display: block;
+            margin-bottom: 20px;
+        }
+        .sidebar {
+            width: 0;
+            height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: #111;
+            overflow-x: hidden;
+            transition: 0.5s;
+            padding-top: 60px;
+        }
+
+        .sidebar a {
+            padding: 10px 15px;
+            text-decoration: none;
+            font-size: 25px;
+            color: #818181;
+            display: block;
+            transition: 0.3s;
+        }
+
+        .sidebar a:hover {
+            background-color: #00ff62;
+            color: white;
+        }
+
+        .sidebar .closebtn {
+            position: absolute;
+            top: 0;
+            right: 25px;
+            font-size: 36px;
+            margin-left: 50px;
+        }
+
+        .sidebar-btn {
+            font-size: 30px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .active {
+            background-color: #00ff62;
+            color: white;
+        }
+    </style>
 </head>
 <body>
-    <div class="userspanel">
-        <button id="createUserBtn" class="button">ایجاد یوزر جدید +</button>
-        <div id="modal" class="modal">
-            <div class="modal-content">
-                <h2>ایجاد یوزر جدید</h2>
-                <label for="remark">ریمارک یوزر:</label>
-                <input type="text" id="remark" class="input-field" required>
-                
-                <label for="duration">مدت زمان اشتراک:</label>
-                <input type="text" id="duration" class="input-field" required>
-                
-                <label for="volume">حجم اشتراک:</label>
-                <input type="text" id="volume" class="input-field" required>
-                
-                <label for="configs">کانفینگ‌ها:</label>
-                <textarea id="configs" class="input-field" rows="4" required></textarea>
-                
-                <button id="submitUser" class="button" disabled>ایجاد یوزر</button>
-            </div>
+    <div class="top">
+        <h2>z panel</h2>
+        <div class="hamberger-menu" onclick="toggleSidebar()">
+            <div></div>
+            <div></div>
+            <div></div>
+        </div>
+    </div>
+    <div id="mySidebar" class="sidebar">
+        <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+        <a href="index.php" class="active">صفحه اصلی</a>
+        <a href="users.php">کاربران <i class="fa fa-user"></i></a>
+        <a href="settings.php">تنظیمات <i class="fa fa-gear"></i></a>
+        <a href="logout.php">خروج <i class="fa fa-sign-out-alt"></i></a>
+    </div>
+    <div class="am">
+        <div class="users">تعداد کاربران: <?php echo $stats['userCount']; ?></div>
+        <div class="ram">
+            مصرف رم: <?php echo $stats['ramUsage'][0]; ?>GB / <?php echo $stats['ramUsage'][1]; ?>GB
+        </div>
+        <div class="trafick">
+            مصرف ترافیک: <?php echo $stats['trafficUsage'][0]; ?>MB / <?php echo $stats['trafficUsage'][1]; ?>MB
+        </div>
+        <div class="procec">
+            پروسس‌های فعال: <?php echo $stats['processUsage'][0]; ?> / <?php echo $stats['processUsage'][1]; ?>
         </div>
     </div>
 
-    <div class="userspanel">
-        <h3>یوزرهای موجود:</h3>
-        <?php foreach ($users as $user): ?>
-            <div class="user-card">
-                <div class="user-info">
-                    <div>ریمارک سرویس: <?php echo htmlspecialchars($user['remark']); ?></div>
-                    <div>حجم: <?php echo htmlspecialchars($user['volume']); ?></div>
-                    <div>مدت زمان: <?php echo htmlspecialchars($user['duration']); ?></div>
-                </div>
-                <div class="user-actions">
-                    <button onclick="showDropdown(event, '<?php echo htmlspecialchars($user['remark']); ?>')">...</button>
-                    <div class="dropdown" id="dropdown-<?php echo htmlspecialchars($user['remark']); ?>">
-                        <button class="red" onclick="deleteUser('<?php echo htmlspecialchars($user['remark']); ?>')">حذف سرویس</button>
-                        <button onclick="editUser('<?php echo htmlspecialchars($user['remark']); ?>', '<?php echo htmlspecialchars($user['duration']); ?>', '<?php echo htmlspecialchars($user['volume']); ?>', '<?php echo htmlspecialchars(file_get_contents($user['config_file'])); ?>')">ویرایش سرویس</button>
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
+    <div class="backup">
+        <span>ابزار های بکاپ</span><br><br>
+        <button>sql</button>
+        <button>bot</button>
     </div>
-    <script src="assets/panel.script.js"></script>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById("mySidebar");
+            if (sidebar.style.width === "0px" || sidebar.style.width === "") {
+                sidebar.style.width = "50%";
+            } else {
+                sidebar.style.width = "0";
+            }
+        }
+        function closeNav() {
+            document.getElementById("mySidebar").style.width = "0";
+        }
+    </script>
 </body>
 </html>
